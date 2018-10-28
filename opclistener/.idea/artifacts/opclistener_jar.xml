@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="opclistener:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/opclistener_jar</output-path>
+    <root id="root">
+      <element id="archive" name="opclistener.jar">
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/out/META-INF/MANIFEST.MF" />
+        </element>
+        <element id="module-output" name="opclistener" />
+      </element>
+      <element id="library" level="project" name="lib" />
+    </root>
+  </artifact>
+</component>

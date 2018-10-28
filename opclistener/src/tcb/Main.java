@@ -1,9 +1,6 @@
 package tcb;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Observable;
-import java.util.Observer;
+import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
@@ -68,7 +65,17 @@ public class Main {
 //        opcClient.asyncReadObject("Channel1.TEST.VW1066", 500);
 
         // 延迟
-        delay(5 * 60 * 1000);
+//        delay(5 * 60 * 1000);
+
+        System.out.println("请输入：EXIT 退出");
+        Scanner scanner = new Scanner(System.in);
+        while (scanner.hasNext()){
+            String inStr = scanner.next().toString();
+            if("EXIT".equals(inStr.toUpperCase())){
+                System.out.print("成功退出！");
+                System.exit(0);
+            }
+        }
     }
 
     private static void delay(long time) {
