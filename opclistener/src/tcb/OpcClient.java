@@ -136,14 +136,7 @@ public class OpcClient extends Observable {
             accessBase = new Async20Access(mServer, period, false);
             accessBase.addItem(itemId, new DataCallback() {
                 public void changed(Item item, ItemState itemState) {
-                    System.out.println("asyncReadObject item=" + itemState.toString());
-//                    try {
-//                        Object value = itemState.getValue().getObject();
-//                    	String value = itemState.toString();
                     setData(itemId, itemState);
-//                    } catch (JIException e) {
-//                        e.printStackTrace();
-//                    }
                 }
             });
             // 开始读取
@@ -183,17 +176,11 @@ public class OpcClient extends Observable {
 
             accessBase.addItem(itemId, new DataCallback() {
                 public void changed(Item item, ItemState itemState) {
-                    System.out.println("syncReadObject item=" + itemState.toString());
                     if (itemState == null) {
                         System.out.println("itemState is null");
                         return;
                     }
-//                    try {
-//                        Object value = itemState.getValue().getObject();
                     setData(itemId, itemState);
-//                    } catch (JIException e) {
-//                        e.printStackTrace();
-//                    }
                 }
             });
             // 开始读取

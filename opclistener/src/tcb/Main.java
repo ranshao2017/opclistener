@@ -1,5 +1,11 @@
 package tcb;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import redis.clients.jedis.Jedis;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.*;
 
 public class Main {
@@ -22,17 +28,7 @@ public class Main {
         }
 
         // 3.检查opc server上的检测点
-        List<String> itemIdList = new ArrayList<String>();
-        itemIdList.add("Channel1.TEST.C1");
-        itemIdList.add("Channel1.TEST.C14");
-        itemIdList.add("Channel1.TEST.C2");
-        itemIdList.add("Channel1.TEST.C3");
-
-        itemIdList.add("Channel1.TEST.I1_3");
-        itemIdList.add("Channel1.TEST.I4_4");
-        itemIdList.add("Channel1.TEST.I4_5");
-        itemIdList.add("Channel1.TEST.I4_6");
-
+        /*List<String> itemIdList = new ArrayList<String>();
         itemIdList.add("Channel1.TEST.I5_4");
         itemIdList.add("Channel1.TEST.VD2600");
         itemIdList.add("Channel1.TEST.VD2604");
@@ -44,20 +40,46 @@ public class Main {
         if (!ret) {
             System.out.println("not contain item list");
             return;
+        }*/
+
+        // 4.获取配置的所有监测点
+        final Map<String, String> tagMap = getConfigMap();
+        if(null == tagMap){
+            System.out.println("未配置监测点");
+            return;
+        }else{
+            System.out.println("配置监测点数：" + tagMap.size());
         }
 
-        // 4.注册回调
+        // 5.注册回调
         opcClient.subscribe(new Observer() {
             public void update(Observable observable, Object arg) {
                 Result result = (Result) arg;
+                String deviceName = result.getItemId().substring(0, result.getItemId().lastIndexOf("."));
+
+                Jedis jedis = new Jedis("localhost", 6379, 60 * 1000);
+                System.out.println("连接redis成功");
+                String deviceObj = jedis.get(deviceName);
+                if(null == deviceObj){
+                    JSONObject obj = new JSONObject();
+                    obj.put(tagMap.get(result.getItemId()), result.getItemState().getValue().toString());
+                    jedis.set(deviceName, obj.toJSONString());
+                }else{
+                    JSONObject obj = JSON.parseObject(deviceObj);
+                    obj.put(tagMap.get(result.getItemId()), result.getItemState().getValue().toString());
+                    jedis.set(deviceName, obj.toJSONString());
+                }
 
                 System.out.println("update result=" + result.getItemState().getValue().toString());
             }
         });
 
-        // 5.添加监听检测点的数据
+        // 6.添加监听检测点的数据
         // client和server在不同网段，可以访问
-        opcClient.syncReadObject("Channel1.TEST.VD2600", 500);
+        for(String key : tagMap.keySet()){
+            opcClient.syncReadObject(key, 1000);
+        }
+
         /**
          * TODO 问题
          * client和server在不同网段，访问失败，比如：server为10.1.1.132，该网段下面又连接了扩展路由器，192.168.1.x，client为192.168.1.100
@@ -76,6 +98,30 @@ public class Main {
                 System.exit(0);
             }
         }
+    }
+
+    private static Map<String, String> getConfigMap() {
+        try{
+            InputStream is = Main.class.getClassLoader().getResourceAsStream("opcconfig.txt");
+            ByteArrayOutputStream result = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) != -1) {
+                result.write(buffer, 0, length);
+            }
+            String confStr = result.toString("UTF-8");
+            if(null != confStr && !"".equals(confStr)){
+                String[] tagArr = confStr.split(",");
+                Map<String, String> tagMap = new HashMap<String, String>();
+                for (int i = 0; i < tagArr.length; i ++){
+                    tagMap.put(tagArr[i].split("-")[0], tagArr[i].split("-")[1]);
+                }
+                return tagMap;
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private static void delay(long time) {
