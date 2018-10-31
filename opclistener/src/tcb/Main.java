@@ -2,13 +2,19 @@ package tcb;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.apache.log4j.Logger;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.*;
 
 public class Main {
+
+    private static Logger logger = Logger.getLogger(Main.class);
+
     public static void main(String[] args) {
         String host = "localhost";// server
         String domain = "localhost";// domain
@@ -16,14 +22,30 @@ public class Main {
         String user = "OPCUser";// server上的访问用户
         String password = "Opc123456";// 访问用户的密码
 
+        //实例化redis连接池
+        GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
+        // 设置最大连接数为默认值的 5 倍
+        poolConfig.setMaxTotal(GenericObjectPoolConfig.DEFAULT_MAX_TOTAL * 5);
+        // 设置最大空闲连接数为默认值的 3 倍
+        poolConfig.setMaxIdle(GenericObjectPoolConfig.DEFAULT_MAX_IDLE * 3);
+        // 设置最小空闲连接数为默认值的 2 倍
+        poolConfig.setMinIdle(GenericObjectPoolConfig.DEFAULT_MIN_IDLE * 2);
+        // 设置开启 jmx 功能
+        poolConfig.setJmxEnabled(true);
+        // 设置连接池没有连接后客户端的最大等待时间 ( 单位为毫秒 )
+        poolConfig.setMaxWaitMillis(5000);
+        final JedisPool jedisPool = new JedisPool(poolConfig, "127.0.0.1", 6379);
+        logger.info("实例化redis连接池成功");
+
         OpcClient opcClient = new OpcClient();
         // 1.显示server上的opc server应用列表
+        logger.info("服务器上所有OPC服务器列表");
         opcClient.showAllOPCServer(host, user, password, domain);
 
         // 2.连接指定的opc server
         boolean ret = opcClient.connectServer(host, progId, user, password, domain);
         if (!ret) {
-            System.out.println("connect opc server fail");
+            logger.error("未成功连接OPC服务器，程序结束");
             return;
         }
 
@@ -45,20 +67,22 @@ public class Main {
         // 4.获取配置的所有监测点
         final Map<String, String> tagMap = getConfigMap();
         if(null == tagMap){
-            System.out.println("未配置监测点");
+            logger.error("未配置监测点");
             return;
         }else{
-            System.out.println("配置监测点数：" + tagMap.size());
+            logger.info("配置监测点数：" + tagMap.size());
         }
 
         // 5.注册回调
         opcClient.subscribe(new Observer() {
             public void update(Observable observable, Object arg) {
+                logger.info("观察到监测点数据");
                 Result result = (Result) arg;
                 String deviceName = result.getItemId().substring(0, result.getItemId().lastIndexOf("."));
 
-                Jedis jedis = new Jedis("localhost", 6379, 60 * 1000);
-                System.out.println("连接redis成功");
+                Jedis jedis = jedisPool.getResource();
+                logger.info("获取redis实例成功");
+
                 String deviceObj = jedis.get(deviceName);
                 if(null == deviceObj){
                     JSONObject obj = new JSONObject();
@@ -69,8 +93,8 @@ public class Main {
                     obj.put(tagMap.get(result.getItemId()), result.getItemState().getValue().toString());
                     jedis.set(deviceName, obj.toJSONString());
                 }
-
-                System.out.println("update result=" + result.getItemState().getValue().toString());
+                jedis.close();
+                logger.info("redis更新完毕");
             }
         });
 
@@ -89,12 +113,12 @@ public class Main {
         // 延迟
 //        delay(5 * 60 * 1000);
 
-        System.out.println("请输入：EXIT 退出");
+        logger.info("请输入：EXIT 退出");
         Scanner scanner = new Scanner(System.in);
         while (scanner.hasNext()){
             String inStr = scanner.next().toString();
             if("EXIT".equals(inStr.toUpperCase())){
-                System.out.print("成功退出！");
+                logger.info("成功退出！");
                 System.exit(0);
             }
         }

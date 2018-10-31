@@ -8,6 +8,7 @@ import java.util.Observer;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+import org.apache.log4j.Logger;
 import org.jinterop.dcom.common.JIException;
 import org.openscada.opc.dcom.list.ClassDetails;
 import org.openscada.opc.lib.common.AlreadyConnectedException;
@@ -30,6 +31,9 @@ import org.openscada.opc.lib.list.Category;
 import org.openscada.opc.lib.list.ServerList;
 
 public class OpcClient extends Observable {
+
+    private static Logger logger = Logger.getLogger(OpcClient.class);
+
     private Server mServer = null;
 
     /**
@@ -45,7 +49,7 @@ public class OpcClient extends Observable {
             // 连接server
             final ConnectionInformation connectionInfo = new ConnectionInformation();
             connectionInfo.setHost(host);
-            connectionInfo.setClsid(serverList.getClsIdFromProgId(progId));// TODO 设置ProgId，无法连接server；设置Clsid，连接server成功
+            connectionInfo.setClsid(serverList.getClsIdFromProgId(progId));
             connectionInfo.setUser(user);
             connectionInfo.setPassword(password);
 
@@ -55,19 +59,13 @@ public class OpcClient extends Observable {
 
             mServer.addStateListener(new ServerConnectionStateListener() {
                 public void connectionStateChanged(boolean state) {
-                    System.out.println("connectionStateChanged state=" + state);
+                    logger.info("connectionStateChanged state=" + state);
                 }
             });
 
             mState = true;
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        } catch (JIException e) {
-            e.printStackTrace();
-        } catch (AlreadyConnectedException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            logger.error("连接OPC服务器异常", e);
         } finally {
             if (!mState) {
                 mServer = null;
@@ -98,11 +96,10 @@ public class OpcClient extends Observable {
             Collection<ClassDetails> detailsList = serverList.listServersWithDetails(
                     new Category[] { Categories.OPCDAServer10, Categories.OPCDAServer20 }, new Category[] {});
             for (final ClassDetails details : detailsList) {
-                System.out.println("ClsId=" + details.getClsId() + " ProgId=" + details.getProgId() + " Description="
-                        + details.getDescription());
+                logger.info("ClsId=" + details.getClsId() + " ProgId=" + details.getProgId() + " Description=" + details.getDescription());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.warn("获取服务器上的OPC服务器应用列表异常", e);
         }
     }
 
@@ -166,18 +163,18 @@ public class OpcClient extends Observable {
             accessBase = new SyncAccess(mServer, period);
             accessBase.addStateListener(new AccessStateListener() {
                 public void stateChanged(boolean state) {
-                    System.out.println("stateChanged state=" + state);
+                    logger.info("stateChanged state=" + state);
                 }
 
                 public void errorOccured(Throwable arg) {
-                    System.out.println("errorOccured arg=" + arg);
+                    logger.info("errorOccured arg=" + arg);
                 }
             });
 
             accessBase.addItem(itemId, new DataCallback() {
                 public void changed(Item item, ItemState itemState) {
                     if (itemState == null) {
-                        System.out.println("itemState is null");
+                        logger.info("itemState is null");
                         return;
                     }
                     setData(itemId, itemState);
