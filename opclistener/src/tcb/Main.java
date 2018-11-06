@@ -34,7 +34,7 @@ public class Main {
         poolConfig.setJmxEnabled(true);
         // 设置连接池没有连接后客户端的最大等待时间 ( 单位为毫秒 )
         poolConfig.setMaxWaitMillis(5000);
-        final JedisPool jedisPool = new JedisPool(poolConfig, "127.0.0.1", 6379);
+        final JedisPool jedisPool = new JedisPool(poolConfig, "127.0.0.1", 6379, 1000, "mercenter2018");
         logger.info("实例化redis连接池成功");
 
         OpcClient opcClient = new OpcClient();
